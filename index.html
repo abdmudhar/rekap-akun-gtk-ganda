@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Rekap GTK Jrengik</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --bg-overlay: rgba(15, 23, 42, 0.4); 
+            --card-main: rgba(255, 255, 255, 0.75);
+            --accent: #4f46e5;
+            --gold: #f59e0b;
+            --text-main: #1e1b4b;
+            --text-dim: #4338ca;
+            --border-white: rgba(255, 255, 255, 0.3);
+        }
+
+        /* Animasi untuk baris tabel */
+        @keyframes fadeInRow {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(var(--bg-overlay), var(--bg-overlay)), url('dapo.jpg');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .dashboard {
+            width: 95%;
+            max-width: 1100px;
+            background: var(--card-main);
+            border-radius: 24px;
+            overflow: hidden;
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.4);
+            border: 1px solid var(--border-white);
+            animation: fadeInRow 0.6s ease-out;
+        }
+
+        .top-bar {
+            padding: 30px;
+            text-align: center;
+            border-bottom: 1px solid rgba(79, 70, 229, 0.1);
+        }
+
+        .main-content {
+            padding: 30px;
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            gap: 30px;
+        }
+
+        .stat-card {
+            background: rgba(79, 70, 229, 0.1);
+            padding: 20px;
+            border-radius: 16px;
+            text-align: center;
+            margin-bottom: 20px;
+            border: 1px solid var(--border-white);
+            transition: transform 0.3s ease;
+        }
+        
+        .stat-card:hover { transform: scale(1.02); }
+
+        .file-input-wrapper {
+            border: 2px dashed var(--accent);
+            border-radius: 16px;
+            padding: 30px 10px;
+            text-align: center;
+            position: relative;
+            cursor: pointer;
+            background: rgba(255, 255, 255, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .file-input-wrapper:hover { background: rgba(255, 255, 255, 0.5); }
+
+        .file-input-wrapper input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+
+        .preview-area { 
+            background: rgba(255, 255, 255, 0.4); 
+            border-radius: 16px; 
+            padding: 20px; 
+            border: 1px solid var(--border-white);
+        }
+
+        .table-container { 
+            max-height: 350px; 
+            overflow-y: auto; 
+            margin-top: 15px; 
+            background: rgba(255, 255, 255, 0.5);
+            border-radius: 8px;
+        }
+
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+
+        th { background: rgba(79, 70, 229, 0.9); color: white; padding: 12px; position: sticky; top: 0; z-index: 10; }
+
+        td { padding: 10px; border-bottom: 1px solid rgba(0, 0, 0, 0.05); color: var(--text-main); }
+
+        /* Kelas animasi untuk baris data */
+        .data-row {
+            animation: fadeInRow 0.4s ease forwards;
+            opacity: 0;
+        }
+
+        .btn-send {
+            width: 100%;
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            color: white;
+            border: none;
+            padding: 15px;
+            border-radius: 12px;
+            font-weight: 800;
+            cursor: pointer;
+            margin-top: 15px;
+            box-shadow: 0 4px 15px rgba(79, 70, 229, 0.4);
+            transition: all 0.3s ease;
+        }
+
+        .btn-send:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(79, 70, 229, 0.6); }
+
+        .btn-send:disabled { background: #cbd5e1; cursor: not-allowed; box-shadow: none; }
+
+        #msg { text-align: center; margin-top: 15px; font-weight: bold; font-size: 13px; }
+        .error { color: #dc2626; }
+        .success { color: #059669; }
+        
+        #clock { font-weight: 500; color: var(--text-dim); }
+    </style>
+</head>
+<body>
+
+<div class="dashboard">
+    <div class="top-bar">
+        <h1 style="margin:0; color:var(--accent)">REKAP AKUN GTK GANDA JRENGIK</h1>
+        <div id="clock">Memuat...</div>
+    </div>
+
+    <div class="main-content">
+        <div class="upload-section">
+            <div class="stat-card">
+                <span style="font-size: 12px; font-weight: bold;">DATA TERBACA</span>
+                <div id="count" style="font-size: 30px; font-weight: 900; color: var(--gold);">0</div>
+            </div>
+
+            <div class="file-input-wrapper">
+                <strong style="color: var(--accent)">PILIH FILE EXCEL</strong>
+                <input type="file" id="excelFile" accept=".xlsx, .xls">
+            </div>
+
+            <button class="btn-send" id="uploadBtn" onclick="uploadData()" disabled>SIMPAN KE DATABASE</button>
+            <div id="msg"></div>
+        </div>
+
+        <div class="preview-area">
+            <strong>Preview 50 Baris</strong>
+            <div class="table-container">
+                <table id="tableOut">
+                    <thead>
+                        <tr><th>Nama</th><th>NIK</th><th>Sekolah</th><th>Keterangan</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td colspan="4" style="text-align:center; padding:40px; color:#64748b">Belum ada data...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let rawData = [];
+    let currentDataHash = "";
+
+    function generateHash(data) {
+        return btoa(unescape(encodeURIComponent(JSON.stringify(data)))).substring(0, 100);
+    }
+
+    function updateClock() {
+        document.getElementById('clock').innerText = new Date().toLocaleString('id-ID', { 
+            weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' 
+        });
+    }
+    setInterval(updateClock, 1000);
+
+    document.getElementById('excelFile').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        const msg = document.getElementById('msg');
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const data = new Uint8Array(e.target.result);
+            const wb = XLSX.read(data, {type: 'array'});
+            const json = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
+
+            if(json.length === 0) {
+                msg.innerHTML = "<span class='error'>❌ File kosong!</span>";
+                return;
+            }
+
+            const newHash = generateHash(json);
+            const lastHash = localStorage.getItem('last_upload_hash');
+
+            if (newHash === lastHash) {
+                msg.innerHTML = "<span class='error'>⚠️ GAGAL: File ini sudah pernah diunggah.</span>";
+                document.getElementById('uploadBtn').disabled = true;
+                return;
+            }
+
+            currentDataHash = newHash;
+            rawData = json.map(row => ["Nama", "NIK", "Satuan Pendidikan", "NPSN", "Kecamatan", "Keterangan"].map(c => row[c] || "-"));
+            document.getElementById('count').innerText = json.length;
+            document.getElementById('uploadBtn').disabled = false;
+            msg.innerHTML = "<span class='success'>✅ File siap diunggah.</span>";
+            
+            let html = "";
+            json.slice(0, 50).forEach((row, index) => {
+                // Menambahkan delay animasi bertahap (staggered animation)
+                const delay = index * 0.03;
+                html += `<tr class="data-row" style="animation-delay: ${delay}s">
+                            <td>${row["Nama"] || '-'}</td>
+                            <td>${row["NIK"] || '-'}</td>
+                            <td>${row["Satuan Pendidikan"] || '-'}</td>
+                            <td style="color:var(--gold); font-weight:600">${row["Keterangan"] || '-'}</td>
+                         </tr>`;
+            });
+            document.querySelector('#tableOut tbody').innerHTML = html;
+        };
+        reader.readAsArrayBuffer(file);
+    });
+
+    async function uploadData() {
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyU4cSf-gQnZIlYARfQNRoX_Sw2Rk9pcU4ipBSFeakax4wKskp7vfF7qt_Qg8reESrV/exec";
+        const btn = document.getElementById('uploadBtn');
+        const msg = document.getElementById('msg');
+
+        btn.disabled = true;
+        msg.innerText = "⏳ SEDANG MENGIRIM...";
+
+        try {
+            await fetch(SCRIPT_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                body: JSON.stringify(rawData)
+            });
+
+            localStorage.setItem('last_upload_hash', currentDataHash);
+            msg.className = "success";
+            msg.innerText = "✅ BERHASIL DISIMPAN!";
+            setTimeout(() => location.reload(), 2000);
+        } catch (e) {
+            msg.className = "error";
+            msg.innerText = "❌ KONEKSI BERMASALAH.";
+            btn.disabled = false;
+        }
+    }
+</script>
+
+</body>
+</html>
